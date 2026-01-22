@@ -1,0 +1,27 @@
+# Rust build artifacts
+**/target/
+**/*.rs.bk
+**/*.pdb
+
+# Holochain build artifacts
+**/workdir/*.dna
+**/workdir/*.happ
+**/workdir/*.wasm
+
+# Keep workdir directory structure but ignore built files
+!**/workdir/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+

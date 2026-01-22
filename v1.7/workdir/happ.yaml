@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private_v1_7_happ
+description: "Flowsta Auth Private Data v1.7 - Username support + Dashboard activity fix + Security migration"
+roles:
+  - id: flowsta_private_v1_7
+    name: flowsta_private_v1_7
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      bundled: dnas/flowsta_private_v1_7.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0

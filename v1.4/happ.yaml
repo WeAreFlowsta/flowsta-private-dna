@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private_v1_4_happ
+description: "Flowsta Auth Private Data v1.4 - Bug fix: get_recovery_phrase follows update chain (prevents data loss on password changes)"
+roles:
+  - id: flowsta_private_v1_4
+    name: flowsta_private_v1_4
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      bundled: dnas/flowsta_private_v1_4.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0

@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private_v1_9
+integrity:
+  network_seed: "flowsta-private-network-v1.9"  # UPDATED FOR v1.9 (Zero-knowledge analytics: analytics_ids stored in Holochain)
+  properties: ~
+  zomes:
+    - name: private_data_integrity
+      path: private_data_integrity.wasm
+      dependencies: []
+coordinator:
+  zomes:
+    - name: private_data
+      path: private_data_coordinator.wasm
+      dependencies:
+        - name: private_data_integrity

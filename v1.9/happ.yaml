@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private_v1_9_happ
+description: "Flowsta Auth Private Data v1.9 - Zero-Knowledge Analytics (analytics_ids stored in Holochain, true zero-knowledge)"
+roles:
+  - id: flowsta_private_v1_9
+    name: flowsta_private_v1_9
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: dnas/flowsta_private_v1_9.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0

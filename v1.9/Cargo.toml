@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "zomes/private_data/integrity",
+    "zomes/private_data/coordinator",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Holochain 0.6 compatible versions
+hdi = "0.7.*"   # ⬆️ Upgraded for Holochain 0.6
+hdk = "0.6.*"   # ⬆️ Upgraded for Holochain 0.6
+serde = "1.0"
+holochain_serialized_bytes = "*"  # Required for integrity zomes

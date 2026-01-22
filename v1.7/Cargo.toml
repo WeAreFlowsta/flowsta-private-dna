@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "zomes/private_data/integrity",
+    "zomes/private_data/coordinator",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Exact match to your working public DNA
+hdi = "=0.6.6"  # Required by hdk 0.5.6
+hdk = "=0.5.6"  # Exact match to conductor
+serde = "1.0"
+holochain_serialized_bytes = "*"  # Required for integrity zomes

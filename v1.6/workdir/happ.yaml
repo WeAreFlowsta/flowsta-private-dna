@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private_v1_6_happ
+description: "Flowsta Auth Private Data v1.6 - User-owned metadata migration (login, dashboard, OAuth activity tracking)"
+roles:
+  - id: flowsta_private_v1_6
+    name: flowsta_private_v1_6
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      bundled: dnas/flowsta_private_v1_6.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0

@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private_v1_2_happ
+description: "Flowsta Auth Private Data v1.2"
+roles:
+  - id: flowsta_private_v1_2
+    name: flowsta_private_v1_2
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      bundled: dnas/flowsta_private_v1_2.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0

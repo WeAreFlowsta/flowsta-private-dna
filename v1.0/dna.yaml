@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private
+integrity:
+  network_seed: "flowsta-private-network-v1"  # Same for all edge nodes
+  properties: ~
+  zomes:
+    - name: private_data_integrity
+      bundled: private_data_integrity.wasm
+      dependencies: []
+coordinator:
+  zomes:
+    - name: private_data
+      bundled: private_data_coordinator.wasm
+      dependencies:
+        - name: private_data_integrity

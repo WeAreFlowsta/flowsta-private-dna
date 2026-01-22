@@ -1,0 +1,20 @@
+# Rust
+target/
+Cargo.lock
+
+# Holochain
+workdir/*.dna
+workdir/*.happ
+*.dna
+*.happ
+
+# Build artifacts
+*.wasm
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+

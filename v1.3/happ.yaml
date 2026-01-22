@@ -1,0 +1,16 @@
+---
+manifest_version: "1"
+name: flowsta_private_v1_3_happ
+description: "Flowsta Auth Private Data v1.3 - Bug fix: get_user_profile follows update chain for password changes"
+roles:
+  - id: flowsta_private_v1_3
+    name: flowsta_private_v1_3
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      bundled: dnas/flowsta_private_v1_3.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0

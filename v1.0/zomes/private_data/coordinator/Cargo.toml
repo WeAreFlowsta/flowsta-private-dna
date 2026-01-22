@@ -1,0 +1,14 @@
+[package]
+name = "private_data_coordinator"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "private_data_coordinator"
+
+[dependencies]
+hdk.workspace = true
+serde.workspace = true
+private_data_integrity = { path = "../integrity" }
+
