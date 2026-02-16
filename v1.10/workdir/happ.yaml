@@ -1,5 +1,5 @@
 ---
-manifest_version: "1"
+manifest_version: "0"
 name: flowsta_private_v1_10_happ
 description: "Flowsta Auth Private Data v1.10 - Two-Factor Authentication (TOTP config stored in Holochain)"
 roles:
@@ -9,7 +9,7 @@ roles:
       strategy: create
       deferred: false
     dna:
-      bundled: dnas/flowsta_private_v1_10.dna
+      path: dnas/flowsta_private_v1_10.dna
       properties: ~
       uid: ~
       version: ~
