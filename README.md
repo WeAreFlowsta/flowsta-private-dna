@@ -5,11 +5,11 @@
 [![Status](https://img.shields.io/badge/status-production-brightgreen.svg)](https://flowsta.com)
 [![Holochain](https://img.shields.io/badge/holochain-0.6.0-blue.svg)](https://holochain.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![DNA Version](https://img.shields.io/badge/DNA-v1.9-orange.svg)](#version-history)
+[![DNA Version](https://img.shields.io/badge/DNA-v1.10-orange.svg)](#version-history)
 
 > **🎉 Production Status**: This DNA is currently running in production, powering [Flowsta Auth](https://flowsta.com) with true zero-knowledge encryption.
 
-This repository contains all versions of the Flowsta Private DNA - a Holochain DNA that stores encrypted user profiles, recovery phrases, and email permissions with complete client-side encryption.
+This repository contains all versions of the Flowsta Private DNA - a Holochain DNA that stores encrypted user profiles, recovery phrases, email permissions, and two-factor authentication secrets with complete client-side encryption.
 
 ---
 
@@ -26,6 +26,7 @@ The **Flowsta Private DNA** is a critical component of our zero-knowledge authen
 - ✅ **Privacy Settings** - User controls for IP tracking, retention policies
 - ✅ **Usernames** - Optional, globally unique, encrypted usernames
 - ✅ **Analytics IDs** - Zero-knowledge analytics (impossible to link to user DID)
+- ✅ **2FA Secrets** - Encrypted TOTP secrets and backup codes for two-factor authentication
 
 **Zero-Knowledge Architecture**: All sensitive data is encrypted in the browser **before** being stored on the DHT. Even Flowsta staff cannot access plaintext user data without the user's password.
 
@@ -42,7 +43,8 @@ flowsta-private-dna/
 ├── v1.4/                        # Fixed get_recovery_phrase + data validation (Oct 2024)
 ├── v1.5/                        # Recursive update chain fix (Nov 2025)
 ├── v1.6/ - v1.8/                # Additional features and improvements
-└── v1.9/                        # ✅ CURRENT - Zero-knowledge analytics (Jan 2026)
+├── v1.9/                        # Zero-knowledge analytics (Jan 2026)
+└── v1.10/                       # ✅ CURRENT - Two-factor authentication (Feb 2026)
 ```
 
 **Note**: v1.2 was skipped in our versioning for historical reasons.
@@ -53,7 +55,8 @@ flowsta-private-dna/
 
 | Version | Date | Type | Changes | Status |
 |---------|------|------|---------|--------|
-| **v1.9** | Jan 2026 | Feature | Zero-knowledge analytics (AppAnalyticsId) | ✅ **Production** |
+| **v1.10** | Feb 2026 | Feature | Two-factor authentication (TotpConfig) | ✅ **Production** |
+| v1.9 | Jan 2026 | Feature | Zero-knowledge analytics (AppAnalyticsId) | ✅ Stable |
 | v1.8 | Nov 2025 | Upgrade | Holochain 0.6 upgrade (HDK 0.6.0, 23 breaking changes) | ✅ Stable |
 | v1.7 | Nov 2025 | Feature | Username support + dashboard activity tracking | ✅ Stable |
 | v1.6 | Nov 2025 | Feature | Login/OAuth/Dashboard activity + Privacy settings | ✅ Stable |
@@ -69,29 +72,6 @@ flowsta-private-dna/
 - **v1.4**: Had an encryption bug generating 8-byte nonces instead of 12-byte, making migrations to v1.5 fail
 - **v1.5**: Fixed with recursive loop to traverse the ENTIRE update chain
 - **Key Insight**: ALWAYS test migrations with fresh accounts on the old version before production!
-
----
-
-## 🚀 Quick Start
-
-### Building a DNA
-
-```bash
-# Navigate to any version
-cd v1.5
-
-# Build the DNA and hApp
-bash build.sh
-
-# Output: workdir/flowsta_private_v1_5_happ.happ
-```
-
-### Installing on Conductor
-
-```bash
-# Install via Holochain Admin API
-hc app install ./v1.5/workdir/flowsta_private_v1_5_happ.happ
-```
 
 ---
 
@@ -141,6 +121,35 @@ pub struct EmailPermission {
 }
 ```
 
+### 4. TotpConfig (v1.10+)
+
+Stores encrypted two-factor authentication secrets and backup codes.
+
+```rust
+pub struct TotpConfig {
+    pub encrypted_secret: String,       // AES-256-GCM encrypted TOTP secret
+    pub nonce: String,                  // Encryption nonce
+    pub salt: String,                   // KDF salt
+    pub tag: String,                    // Auth tag
+    pub encrypted_backup_codes: String, // Encrypted backup codes
+    pub backup_nonce: String,           // Backup codes encryption nonce
+    pub backup_salt: String,            // Backup codes KDF salt
+    pub backup_tag: String,             // Backup codes auth tag
+    pub enabled: bool,                  // Whether 2FA is currently active
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+```
+
+**Zome functions**: `store_totp_config`, `get_totp_config`, `update_totp_config`, `disable_totp`
+
+**Key behaviours**:
+- `store_totp_config` rejects if a config already exists (prevents duplicates)
+- `get_totp_config` follows the recursive update chain (same pattern as other entry types)
+- `update_totp_config` handles re-encryption on password change and backup code consumption
+- `disable_totp` sets `enabled = false` without deleting the entry
+- TOTP secret and backup codes are encrypted separately with independent nonce/salt/tag parameters
+
 ---
 
 ## 🔐 Encryption Details
@@ -188,38 +197,26 @@ When migrating users between DNA versions:
 
 **Note**: DNA version migrations require careful planning and thorough testing to ensure data integrity.
 
----
+### Creating a New DNA Version
 
-## 🛠️ Development
-
-### Prerequisites
-
-- Rust 1.70+
-- Holochain 0.2.x
-- `hc` CLI tool
-
-### Building Locally
+Each version gets its own directory with an independent network seed:
 
 ```bash
-# Install Holochain
-nix-shell https://holochain.love
+# Copy the latest version
+cp -r v1.10 v1.11
 
-# Build any version
-cd v1.5 && bash build.sh
+# Update DNA configuration
+cd v1.11
+# Edit dna.yaml: Update network_seed to "flowsta-private-network-v1.11"
+# Edit happ.yaml: Update version info
+
+# Make your changes in zomes/
+
+# Test migration from v1.10 → v1.11
+# Document the migration process
 ```
 
-### Testing
-
-```bash
-# Run Rust tests
-cd v1.5/zomes/private_data/coordinator
-cargo test
-
-# Integration tests
-hc sandbox create
-hc sandbox run
-# Then test via API calls
-```
+**CRITICAL**: Always test migrations from the previous version with fresh accounts before merging!
 
 ---
 
@@ -230,6 +227,7 @@ hc sandbox run
 - **[v1.3/README.md](./v1.3/README.md)** - Update chain fix v1
 - **[v1.4/README.md](./v1.4/README.md)** - Recovery phrase fix (⚠️ nonce bug)
 - **[v1.5/README.md](./v1.5/README.md)** - Recursive update chain fix
+- **[v1.10/README.md](./v1.10/README.md)** - Two-factor authentication (TotpConfig)
 
 ---
 
@@ -285,84 +283,17 @@ const nonce = crypto.randomBytes(12);
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-### Quick Start for Contributors
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-improvement`)
-3. **Make your changes** in the latest version directory (currently v1.9)
-4. **Test thoroughly** - Both unit tests and migration tests
-5. **Submit a pull request**
-
-### Creating a New DNA Version
-
-For breaking changes or new features that require a new network seed:
-
-```bash
-# Copy the latest version
-cp -r v1.9 v1.10
-
-# Update DNA configuration
-cd v1.10
-# Edit dna.yaml: Update network_seed to "flowsta-private-network-v1.10"
-# Edit happ.yaml: Update version info
-
-# Make your changes in zomes/
-
-# Test migration from v1.9 → v1.10
-# Document the migration process
-```
-
-**CRITICAL**: Always test migrations from the previous version with fresh accounts before merging!
-
-### Code of Conduct
-
-- Be respectful and constructive
-- Security vulnerabilities → email security@flowsta.com (not public issues)
-- Focus on user privacy and zero-knowledge principles
-- Test thoroughly - user data is at stake
-
-### What We're Looking For
-
-- 🔐 Security improvements
-- ⚡ Performance optimizations
-- 📚 Documentation enhancements
-- 🐛 Bug fixes (especially in update chain logic)
-- ✅ Additional test coverage
-
----
-
 ## 🚨 Security
 
-### Reporting Vulnerabilities
+If you discover a security vulnerability, please email **security@flowsta.com** — do not open a public issue.
 
-If you discover a security vulnerability, please email **security@flowsta.com** with:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
-
-**Please do not** open a public GitHub issue for security vulnerabilities.
-
-We aim to respond within 48 hours and will credit researchers in our security advisories.
-
-### Why Open-Sourcing Improves Security
-
-This DNA is open-source because:
-- ✅ **Transparency proves zero-knowledge claims** - You can verify encryption happens client-side
-- ✅ **Independent security audits** - External researchers can review the code
-- ✅ **"Don't trust, verify" principle** - Unlike closed-source competitors
-- ✅ **Community contributions** - Security improvements from the Holochain community
-
-**Critical**: The DNA code cannot decrypt user data without their password. Opening the code does not compromise security.
+This DNA is open-source so you can verify our zero-knowledge claims yourself. The DNA code cannot decrypt user data without the user's password — opening the source does not compromise security.
 
 ### Security Audit History
 
 - **November 2025**: v1.5 recursive update chain fix (password change bug)
 - **January 2026**: Production deployment with multi-node DHT
+- **February 2026**: v1.10 two-factor authentication with encrypted TOTP storage
 
 We welcome independent security audits of this code.
 
@@ -446,7 +377,7 @@ No. The data is encrypted **before** being stored on the DHT. Other nodes only s
 
 ---
 
-**Status**: ✅ Production (v1.9)  
-**Last Updated**: January 2026  
+**Status**: ✅ Production (v1.10)
+**Last Updated**: February 2026
 **Maintained by**: [Flowsta Team](https://flowsta.com)
 
