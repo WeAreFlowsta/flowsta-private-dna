@@ -1,5 +1,5 @@
 ---
-manifest_version: "1"
+manifest_version: "0"
 name: flowsta_private_v1_9_happ
 description: "Flowsta Auth Private Data v1.9 - Zero-Knowledge Analytics (analytics_ids stored in Holochain, true zero-knowledge)"
 roles:

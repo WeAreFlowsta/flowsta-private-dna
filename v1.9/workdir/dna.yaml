@@ -1,5 +1,5 @@
 ---
-manifest_version: "1"
+manifest_version: "0"
 name: flowsta_private_v1_9
 integrity:
   network_seed: "flowsta-private-network-v1.9"  # UPDATED FOR v1.9 (Zero-knowledge analytics: analytics_ids stored in Holochain)
