@@ -1,0 +1,16 @@
+---
+manifest_version: "0"
+name: flowsta_private_v1_11
+integrity:
+  network_seed: "flowsta-private-network-v1.11"  # UPDATED FOR v1.11 (Profile picture moved from public identity DNA to private DNA)
+  properties: ~
+  zomes:
+    - name: private_data_integrity
+      path: private_data_integrity.wasm
+      dependencies: []
+coordinator:
+  zomes:
+    - name: private_data
+      path: private_data_coordinator.wasm
+      dependencies:
+        - name: private_data_integrity

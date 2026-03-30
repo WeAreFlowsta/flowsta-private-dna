@@ -1,0 +1,16 @@
+---
+manifest_version: "0"
+name: flowsta_private_v1_11_happ
+description: "Flowsta Auth Private Data v1.11 - Profile picture moved to private DNA (removed from public identity DNA)"
+roles:
+  - id: flowsta_private_v1_11
+    name: flowsta_private_v1_11
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: dnas/flowsta_private_v1_11.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0
