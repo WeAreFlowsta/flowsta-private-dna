@@ -5,7 +5,7 @@
 [![Status](https://img.shields.io/badge/status-production-brightgreen.svg)](https://flowsta.com)
 [![Holochain](https://img.shields.io/badge/holochain-0.6.0-blue.svg)](https://holochain.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![DNA Version](https://img.shields.io/badge/DNA-v1.10-orange.svg)](#version-history)
+[![DNA Version](https://img.shields.io/badge/DNA-v1.11-orange.svg)](#version-history)
 
 > **🎉 Production Status**: This DNA is currently running in production, powering [Flowsta Auth](https://flowsta.com) with true zero-knowledge encryption.
 
@@ -27,6 +27,7 @@ The **Flowsta Private DNA** is a critical component of our zero-knowledge authen
 - ✅ **Usernames** - Optional, globally unique, encrypted usernames
 - ✅ **Analytics IDs** - Zero-knowledge analytics (impossible to link to user DID)
 - ✅ **2FA Secrets** - Encrypted TOTP secrets and backup codes for two-factor authentication
+- ✅ **Profile Pictures** - User's profile picture (moved from public identity DNA in v1.11 to ensure pseudonymity on the public DHT)
 
 **Zero-Knowledge Architecture**: All sensitive data is encrypted in the browser **before** being stored on the DHT. Even Flowsta staff cannot access plaintext user data without the user's password.
 
@@ -44,7 +45,8 @@ flowsta-private-dna/
 ├── v1.5/                        # Recursive update chain fix (Nov 2025)
 ├── v1.6/ - v1.8/                # Additional features and improvements
 ├── v1.9/                        # Zero-knowledge analytics (Jan 2026)
-└── v1.10/                       # ✅ CURRENT - Two-factor authentication (Feb 2026)
+├── v1.10/                       # Two-factor authentication (Feb 2026)
+└── v1.11/                       # ✅ CURRENT - Profile picture moved from public DHT (Mar 2026)
 ```
 
 **Note**: v1.2 was skipped in our versioning for historical reasons.
@@ -55,7 +57,8 @@ flowsta-private-dna/
 
 | Version | Date | Type | Changes | Status |
 |---------|------|------|---------|--------|
-| **v1.10** | Feb 2026 | Feature | Two-factor authentication (TotpConfig) | ✅ **Production** |
+| **v1.11** | Mar 2026 | Privacy | Profile picture moved from public identity DNA (pseudonymity) | ✅ **Production** |
+| v1.10 | Feb 2026 | Feature | Two-factor authentication (TotpConfig) | ✅ Stable |
 | v1.9 | Jan 2026 | Feature | Zero-knowledge analytics (AppAnalyticsId) | ✅ Stable |
 | v1.8 | Nov 2025 | Upgrade | Holochain 0.6 upgrade (HDK 0.6.0, 23 breaking changes) | ✅ Stable |
 | v1.7 | Nov 2025 | Feature | Username support + dashboard activity tracking | ✅ Stable |
@@ -142,6 +145,22 @@ pub struct TotpConfig {
 ```
 
 **Zome functions**: `store_totp_config`, `get_totp_config`, `update_totp_config`, `disable_totp`
+
+### 5. ProfilePicture (v1.11+)
+
+Stores user's profile picture in encrypted private storage. Moved from the public identity DNA in v1.4 to ensure the public DHT remains pseudonymous — profile pictures (especially custom uploads with faces) are identifiable and should not be on a public network.
+
+```rust
+pub struct ProfilePicture {
+    pub profile_picture: String,      // Base64 data URI (identicon or custom upload)
+    pub has_custom_picture: bool,     // True if user-uploaded (not auto-generated)
+    pub updated_at: i64,
+}
+```
+
+**Zome functions**: `store_profile_picture`, `get_profile_picture`, `update_profile_picture`
+
+**Why this matters**: If users don't share their agent public key or the DID derived from it, the public identity DHT is fully pseudonymous. Keeping profile pictures on the public DHT would undermine this — anyone on the DHT network could see the photo and potentially identify the person behind an agent key.
 
 **Key behaviours**:
 - `store_totp_config` rejects if a config already exists (prevents duplicates)
@@ -294,6 +313,7 @@ This DNA is open-source so you can verify our zero-knowledge claims yourself. Th
 - **November 2025**: v1.5 recursive update chain fix (password change bug)
 - **January 2026**: Production deployment with multi-node DHT
 - **February 2026**: v1.10 two-factor authentication with encrypted TOTP storage
+- **March 2026**: v1.11 profile picture moved from public to private DNA for pseudonymity
 
 We welcome independent security audits of this code.
 
@@ -377,7 +397,7 @@ No. The data is encrypted **before** being stored on the DHT. Other nodes only s
 
 ---
 
-**Status**: ✅ Production (v1.10)
-**Last Updated**: February 2026
+**Status**: ✅ Production (v1.11)
+**Last Updated**: March 2026
 **Maintained by**: [Flowsta Team](https://flowsta.com)
 
