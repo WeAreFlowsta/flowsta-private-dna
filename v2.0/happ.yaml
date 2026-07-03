@@ -1,0 +1,16 @@
+---
+manifest_version: "0"
+name: flowsta_private_v2_0_happ
+description: "Flowsta Private Data v2.0 - encrypt-before-gossip: opaque Sealed records, per-user network seed"
+roles:
+  - id: flowsta_private_v2_0
+    name: flowsta_private_v2_0
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: dnas/flowsta_private_v2_0.dna
+      properties: ~
+      uid: ~
+      version: ~
+      clone_limit: 0

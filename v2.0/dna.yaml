@@ -1,0 +1,21 @@
+---
+manifest_version: "0"
+name: flowsta_private_v2_0
+integrity:
+  # ⚠️ PLACEHOLDER SEED — v2 cells are installed with a PER-USER network
+  # seed derived from the recovery phrase (HMAC 'flowsta-private-network-v2',
+  # see flowsta-vault key_derivation::derive_private_network_seed). Installers
+  # MUST override this at install time; a shared seed would gossip strangers'
+  # ciphertext into one DHT. This default exists only so the manifest parses.
+  network_seed: "flowsta-private-network-v2-PLACEHOLDER-OVERRIDE-AT-INSTALL"
+  properties: ~
+  zomes:
+    - name: private_data_integrity
+      path: private_data_integrity.wasm
+      dependencies: []
+coordinator:
+  zomes:
+    - name: private_data
+      path: private_data_coordinator.wasm
+      dependencies:
+        - name: private_data_integrity
