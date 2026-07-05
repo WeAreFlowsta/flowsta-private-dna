@@ -6,8 +6,12 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-# Holochain 0.6 compatible versions
-hdi = "0.7.*"   # ⬆️ Upgraded for Holochain 0.6
-hdk = "0.6.*"   # ⬆️ Upgraded for Holochain 0.6
+# Holochain 0.6 compatible versions — pinned EXACTLY to what v1.11 ships
+# with: hdk 0.6.2+ emits host imports (e.g. __hc__get_init_properties_1)
+# that a 0.6.1 conductor cannot provide, so the module fails to build at
+# first zome call ("unknown import"). Bump only together with the bundled
+# conductor.
+hdi = "=0.7.0"
+hdk = "=0.6.0"
 serde = "1.0"
 holochain_serialized_bytes = "*"  # Required for integrity zomes
