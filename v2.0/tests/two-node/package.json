@@ -1,0 +1,6 @@
+{
+  "name": "private-network-two-node-check",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@holochain/client": "0.20.2", "@msgpack/msgpack": "^3.0.0" }
+}

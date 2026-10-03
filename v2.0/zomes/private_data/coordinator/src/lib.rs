@@ -248,3 +248,74 @@ pub fn replace_sealed_at(input: ReplaceAtInput) -> ExternResult<Record> {
     retire_sealed_at(RetireAtInput { base, target: input.original })?;
     Ok(record)
 }
+
+// ── Bytes between a person's own devices ───────────────────────────────
+//
+// Large objects (app backups) do not go into entries. A device sends them
+// to another of the person's devices as remote signals, in pieces; the
+// receiving Vault reassembles and checks the content hash. Delivery is
+// best effort: the Vaults acknowledge and resend.
+
+const PIECE_GRANT_TAG: &str = "pieces";
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Piece {
+    /// Transfer id chosen by the sender.
+    pub id: String,
+    /// "data" or "ack"; other kinds are passed through untouched.
+    pub kind: String,
+    pub seq: u32,
+    pub total: u32,
+    #[serde(with = "serde_bytes")]
+    pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PieceFrom {
+    pub from: AgentPubKey,
+    pub piece: Piece,
+}
+
+/// Let the person's other devices deliver pieces to this one. Idempotent.
+#[hdk_extern]
+pub fn ensure_piece_grant(_: ()) -> ExternResult<bool> {
+    let existing = query(
+        ChainQueryFilter::new()
+            .entry_type(EntryType::CapGrant)
+            .include_entries(true),
+    )?;
+    for record in existing {
+        if let Some(Entry::CapGrant(grant)) = record.entry().as_option() {
+            if grant.tag == PIECE_GRANT_TAG {
+                return Ok(false);
+            }
+        }
+    }
+    let mut functions = HashSet::new();
+    functions.insert((zome_info()?.name, FunctionName::from("recv_remote_signal")));
+    create_cap_grant(CapGrantEntry {
+        tag: PIECE_GRANT_TAG.into(),
+        access: CapAccess::Unrestricted,
+        functions: GrantedFunctions::Listed(functions),
+    })?;
+    Ok(true)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SendPieceInput {
+    pub to: AgentPubKey,
+    pub piece: Piece,
+}
+
+/// Send one piece to another device of the same person.
+#[hdk_extern]
+pub fn send_piece(input: SendPieceInput) -> ExternResult<()> {
+    send_remote_signal(input.piece, vec![input.to])
+}
+
+/// A piece arrived: hand it to this device's Vault.
+#[hdk_extern]
+pub fn recv_remote_signal(piece: Piece) -> ExternResult<()> {
+    let from = call_info()?.provenance;
+    emit_signal(PieceFrom { from, piece })
+}
