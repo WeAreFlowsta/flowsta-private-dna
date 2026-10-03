@@ -129,3 +129,122 @@ pub fn replace_sealed(input: ReplaceSealedInput) -> ExternResult<Record> {
 pub fn export_all_data(_: ()) -> ExternResult<Vec<Record>> {
     get_all_sealed(())
 }
+
+// ── Several devices, one identity ──────────────────────────────────────
+//
+// A person's devices each run their own agent in the per-user network.
+// Records are linked from ONE shared base (the identity's agent key), so
+// every device lists the same set whichever device wrote a record.
+// Entry updates and deletes stay author-only (integrity); a device
+// retires another device's record by removing its LINK from the base.
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SealedAtInput {
+    pub base: AgentPubKey,
+    #[serde(with = "serde_bytes")]
+    pub cipher: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub nonce: Vec<u8>,
+    /// Empty for sealed records; markers carry a short tag.
+    #[serde(default, with = "serde_bytes")]
+    pub tag: Vec<u8>,
+}
+
+/// Store a record and link it from the shared base.
+#[hdk_extern]
+pub fn create_sealed_at(input: SealedAtInput) -> ExternResult<Record> {
+    check_input(&SealedInput { cipher: input.cipher.clone(), nonce: input.nonce.clone() })?;
+    let sealed_hash = create_entry(&EntryZomes::IntegrityPrivateData(EntryTypes::Sealed(Sealed {
+        cipher: input.cipher,
+        nonce: input.nonce,
+    })))?;
+    create_link(input.base, sealed_hash.clone(), LinkTypes::AgentToSealed, LinkTag::new(input.tag))?;
+    get(sealed_hash, GetOptions::local())?
+        .ok_or(wasm_error!("Could not find the newly created sealed record"))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListAtInput {
+    pub base: AgentPubKey,
+    /// Links whose tag starts with this are returned; empty = records with an empty tag only.
+    #[serde(default, with = "serde_bytes")]
+    pub tag_prefix: Vec<u8>,
+    /// Ask the network instead of reading what this device holds.
+    #[serde(default)]
+    pub network: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListedSealed {
+    pub record: Record,
+    pub link: ActionHash,
+    #[serde(with = "serde_bytes")]
+    pub tag: Vec<u8>,
+}
+
+/// Every live record linked from the base, whichever device wrote it.
+#[hdk_extern]
+pub fn get_all_sealed_at(input: ListAtInput) -> ExternResult<Vec<ListedSealed>> {
+    let (link_strategy, get_options) = if input.network {
+        (GetStrategy::Network, GetOptions::network())
+    } else {
+        (GetStrategy::Local, GetOptions::local())
+    };
+    let links = get_links(LinkQuery::try_new(input.base, LinkTypes::AgentToSealed)?, link_strategy)?;
+    let mut out = Vec::with_capacity(links.len());
+    for link in links {
+        let tag = link.tag.into_inner();
+        let wanted = if input.tag_prefix.is_empty() { tag.is_empty() } else { tag.starts_with(&input.tag_prefix) };
+        if !wanted {
+            continue;
+        }
+        let Ok(action_hash) = ActionHash::try_from(link.target.clone()) else {
+            continue;
+        };
+        if let Some(record) = get(action_hash, get_options.clone())? {
+            out.push(ListedSealed { record, link: link.create_link_hash, tag });
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RetireAtInput {
+    pub base: AgentPubKey,
+    pub target: ActionHash,
+}
+
+/// Retire a record: remove its links from the base (any device may), and
+/// tombstone the entry when this device wrote it. Returns links removed.
+#[hdk_extern]
+pub fn retire_sealed_at(input: RetireAtInput) -> ExternResult<u32> {
+    let links = get_links(LinkQuery::try_new(input.base, LinkTypes::AgentToSealed)?, GetStrategy::Local)?;
+    let mut removed = 0u32;
+    for link in links {
+        if ActionHash::try_from(link.target.clone()).ok().as_ref() == Some(&input.target) {
+            delete_link(link.create_link_hash, GetOptions::local())?;
+            removed += 1;
+        }
+    }
+    if let Some(record) = get(input.target.clone(), GetOptions::local())? {
+        if *record.action().author() == agent_info()?.agent_initial_pubkey {
+            delete_entry(input.target)?;
+        }
+    }
+    Ok(removed)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ReplaceAtInput {
+    pub original: ActionHash,
+    pub replacement: SealedAtInput,
+}
+
+/// Supersede a record written by any device.
+#[hdk_extern]
+pub fn replace_sealed_at(input: ReplaceAtInput) -> ExternResult<Record> {
+    let base = input.replacement.base.clone();
+    let record = create_sealed_at(input.replacement)?;
+    retire_sealed_at(RetireAtInput { base, target: input.original })?;
+    Ok(record)
+}
