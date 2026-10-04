@@ -59,8 +59,28 @@ is no server-orchestrated migration for it. Migration of v1.11 data happens
 client-side in Vault (export from the API cell → decrypt → wrap into
 `SealedPayload` → `create_sealed` into the device cell).
 
+## Coordinator revision 2 - several devices, one identity
+
+The integrity zome and the bundle are unchanged (same DNA hash, same per-user network). Flowsta Vault applies the coordinator with `UpdateCoordinators` at every conductor start. Added beside the original functions:
+
+| Function | What it does |
+|---|---|
+| `create_sealed_at({base, cipher, nonce, tag})` | store a record and link it from a shared base (the identity's agent key), so every device lists the same set |
+| `get_all_sealed_at({base, tag_prefix, network})` | every live record linked from the base, whichever device wrote it; an empty prefix returns records with an empty tag |
+| `retire_sealed_at({base, target})` | remove a record's links from the base (any device may) and tombstone the entry when this device wrote it |
+| `replace_sealed_at({original, replacement})` | supersede a record written by any device |
+| `ensure_piece_grant()` / `send_piece({to, piece})` / `recv_remote_signal` | send a large object to another of the person's devices in pieces, as remote signals |
+
+Entry updates and deletes stay author-only. Which version of a record is current, and whether it was deleted, is decided by the Vault after decryption. `tests/two-node/` runs the checks on one machine (`h.mjs`) and across two machines (`two.mjs`).
+
 ## Build
 
 ```bash
 ./build.sh   # wasm32 build + hc dna pack + hc app pack → workdir/
+```
+
+`build.sh` produces a NEW bundle with a new DNA hash; the shipped bundle is never replaced. To build only the coordinator:
+
+```bash
+RUSTFLAGS='--cfg getrandom_backend="custom"' cargo build --locked --release --target wasm32-unknown-unknown -p private_data_coordinator
 ```
