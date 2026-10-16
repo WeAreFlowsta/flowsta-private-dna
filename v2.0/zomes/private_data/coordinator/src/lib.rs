@@ -148,6 +148,11 @@ pub struct SealedAtInput {
     /// Empty for sealed records; markers carry a short tag.
     #[serde(default, with = "serde_bytes")]
     pub tag: Vec<u8>,
+    /// More links to the same record, each with its own tag, so a kind of
+    /// record can be asked for on its own (`get_all_sealed_at` with that
+    /// prefix) while readers of the main link see it as before.
+    #[serde(default)]
+    pub extra_tags: Vec<serde_bytes::ByteBuf>,
 }
 
 /// Store a record and link it from the shared base.
@@ -158,7 +163,10 @@ pub fn create_sealed_at(input: SealedAtInput) -> ExternResult<Record> {
         cipher: input.cipher,
         nonce: input.nonce,
     })))?;
-    create_link(input.base, sealed_hash.clone(), LinkTypes::AgentToSealed, LinkTag::new(input.tag))?;
+    create_link(input.base.clone(), sealed_hash.clone(), LinkTypes::AgentToSealed, LinkTag::new(input.tag))?;
+    for extra in input.extra_tags {
+        create_link(input.base.clone(), sealed_hash.clone(), LinkTypes::AgentToSealed, LinkTag::new(extra.into_vec()))?;
+    }
     get(sealed_hash, GetOptions::local())?
         .ok_or(wasm_error!("Could not find the newly created sealed record"))
 }

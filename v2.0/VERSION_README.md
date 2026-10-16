@@ -71,6 +71,8 @@ The integrity zome and the bundle are unchanged (same DNA hash, same per-user ne
 | `replace_sealed_at({original, replacement})` | supersede a record written by any device |
 | `ensure_piece_grant()` / `send_piece({to, piece})` / `recv_remote_signal` | send a large object to another of the person's devices in pieces, as remote signals |
 
+Revision 3 adds `extra_tags` to `create_sealed_at`: more links from the base to the same record, one per tag. The Vault puts a tag keyed with the data key on device and removal records, so a device can ask the network for those alone (`get_all_sealed_at` with that prefix and `network: true`). Readers of the untagged link see every record as before, so Vaults that have not updated are unaffected; `retire_sealed_at` removes every link to a record, tagged or not.
+
 Entry updates and deletes stay author-only. Which version of a record is current, and whether it was deleted, is decided by the Vault after decryption. `tests/two-node/` runs the checks on one machine (`h.mjs`) and across two machines (`two.mjs`).
 
 ## Build
