@@ -7,6 +7,7 @@
 
 use hdk::prelude::*;
 use private_data_integrity::*;
+use std::collections::HashMap;
 
 #[hdk_dependent_entry_types]
 enum EntryZomes {
@@ -255,6 +256,163 @@ pub fn replace_sealed_at(input: ReplaceAtInput) -> ExternResult<Record> {
     let record = create_sealed_at(input.replacement)?;
     retire_sealed_at(RetireAtInput { base, target: input.original })?;
     Ok(record)
+}
+
+// ── Listing without reading again what the caller holds ────────────────
+//
+// A `get` costs about 0.3 s on a large cell whatever its strategy, so
+// `get_all_sealed_at` took minutes on a device holding thousands of
+// records, and a Vault that asked again before the answer came stacked
+// those reads up inside the conductor. Records never change (an edit is a
+// new record), so the Vault keeps what it has read and this lists every
+// live link with records only for targets the caller does not hold: this
+// device's own from its chain in two queries, the rest by `get`, at most
+// `limit` of those per call so no call runs long.
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListRefsInput {
+    pub base: AgentPubKey,
+    /// As in `get_all_sealed_at`: empty = records with an empty tag only.
+    #[serde(default, with = "serde_bytes")]
+    pub tag_prefix: Vec<u8>,
+    /// Records the caller holds already: listed, not sent again.
+    #[serde(default)]
+    pub known: Vec<ActionHash>,
+    /// At most this many records read by `get` in one call (0 = no limit).
+    #[serde(default)]
+    pub limit: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListedRef {
+    pub target: ActionHash,
+    pub link: ActionHash,
+    #[serde(with = "serde_bytes")]
+    pub tag: Vec<u8>,
+    /// None when the caller holds it, when it is not on this device (yet),
+    /// or when it was left for the limit.
+    pub record: Option<Record>,
+    /// Not read in this call for the limit: ask again.
+    pub left: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListedRefs {
+    pub refs: Vec<ListedRef>,
+    /// Records were left out for the limit: ask again.
+    pub more: bool,
+}
+
+/// Every live link from the base, with the records the caller lacks. Reads
+/// what this device holds (never the network).
+#[hdk_extern]
+pub fn list_sealed_at(input: ListRefsInput) -> ExternResult<ListedRefs> {
+    let links = get_links(LinkQuery::try_new(input.base, LinkTypes::AgentToSealed)?, GetStrategy::Local)?;
+    let known: HashSet<ActionHash> = input.known.into_iter().collect();
+    let me = agent_info()?.agent_initial_pubkey;
+    let mut listed = Vec::with_capacity(links.len());
+    for link in links {
+        let tag = link.tag.into_inner();
+        let wanted = if input.tag_prefix.is_empty() { tag.is_empty() } else { tag.starts_with(&input.tag_prefix) };
+        if !wanted {
+            continue;
+        }
+        let Ok(target) = ActionHash::try_from(link.target) else {
+            continue;
+        };
+        listed.push((target, link.create_link_hash, tag, link.author == me));
+    }
+    // A record and its link are written in one call, so a link this agent
+    // wrote points at a record on this agent's chain.
+    let own_targets: Vec<ActionHash> = listed
+        .iter()
+        .filter(|(target, _, _, mine)| *mine && !known.contains(target))
+        .map(|(target, ..)| target.clone())
+        .collect();
+    let mut own = from_own_chain(&own_targets)?;
+    let mut budget = if input.limit == 0 { u32::MAX } else { input.limit };
+    let mut more = false;
+    let mut refs = Vec::with_capacity(listed.len());
+    for (target, link, tag, _) in listed {
+        let (record, left) = if known.contains(&target) {
+            (None, false)
+        } else if let Some(record) = own.remove(&target) {
+            (Some(record), false)
+        } else if budget > 0 {
+            budget -= 1;
+            (get(target.clone(), GetOptions::local())?, false)
+        } else {
+            more = true;
+            (None, true)
+        };
+        refs.push(ListedRef { target, link, tag, record, left });
+    }
+    Ok(ListedRefs { refs, more })
+}
+
+/// Up to this many records are read with `get`; more with the chain
+/// queries (one scan costs about six gets on a large cell).
+const CHAIN_SCAN_ABOVE: usize = 6;
+
+/// Sequence numbers this close together are fetched as one range.
+const RANGE_GAP: u32 = 16;
+
+/// The wanted records that sit on this agent's own chain, by two chain
+/// queries instead of one `get` each; records this agent deleted are left
+/// out, as `get` leaves them out.
+fn from_own_chain(targets: &[ActionHash]) -> ExternResult<HashMap<ActionHash, Record>> {
+    if targets.len() <= CHAIN_SCAN_ABOVE {
+        return Ok(HashMap::new());
+    }
+    let wanted: HashSet<&ActionHash> = targets.iter().collect();
+    // Actions only (no entry is loaded): where the wanted records sit, and
+    // which of them this agent deleted.
+    let actions = query(ChainQueryFilter::new().include_entries(false))?;
+    let mut seqs = Vec::new();
+    let mut deleted = HashSet::new();
+    for record in &actions {
+        match record.action() {
+            Action::Create(_) if wanted.contains(record.action_address()) => seqs.push(record.action().action_seq()),
+            Action::Delete(delete) => {
+                deleted.insert(delete.deletes_address.clone());
+            }
+            _ => {}
+        }
+    }
+    drop(actions);
+    // Entries only for those sequence numbers. NEVER ask for entries without
+    // a sequence range: the conductor loads every entry of the chain before
+    // it filters (on a large cell that froze a 16 GB machine).
+    let mut out = HashMap::new();
+    for (from, to) in seq_ranges(&mut seqs, RANGE_GAP) {
+        let records = query(
+            ChainQueryFilter::new()
+                .sequence_range(ChainQueryFilterRange::ActionSeqRange(from, to))
+                .action_type(ActionType::Create)
+                .include_entries(true),
+        )?;
+        for record in records {
+            if wanted.contains(record.action_address()) && !deleted.contains(record.action_address()) {
+                out.insert(record.action_address().clone(), record);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Sorted, merged (from, to) ranges covering every number, joining numbers
+/// no further apart than `gap`.
+fn seq_ranges(seqs: &mut Vec<u32>, gap: u32) -> Vec<(u32, u32)> {
+    seqs.sort_unstable();
+    seqs.dedup();
+    let mut out: Vec<(u32, u32)> = Vec::new();
+    for &s in seqs.iter() {
+        match out.last_mut() {
+            Some((_, to)) if s - *to <= gap => *to = s,
+            _ => out.push((s, s)),
+        }
+    }
+    out
 }
 
 // ── Bytes between a person's own devices ───────────────────────────────
