@@ -1,6 +1,6 @@
-# DNA v2.0 — Encrypt-Before-Gossip
+# DNA v2.1 — Encrypt-Before-Gossip on Holochain 0.7.1
 
-**Status**: 🚧 IN DEVELOPMENT
+**Status**: built and tested 2026-10-25 (sweettest in `tests/`); ships with the Vault 1.7.0 line. v2.1 is the 0.7 generation of v2.0: the same design, validation on the 0.7 action model, the piece lane's grant in the 0.7 shape. The text below is v2.0's design, unchanged.
 
 ---
 
