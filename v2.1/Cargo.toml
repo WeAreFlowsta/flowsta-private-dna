@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "zomes/private_data/integrity",
+    "zomes/private_data/coordinator",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Holochain 0.7: HDK 0.7.1 + HDI 0.8.1 (the 0.7.1 conductor line). v2.1 is the
+# 0.7 generation of v2.0: a new DNA hash, so a new network per user.
+hdi = "=0.8.1"
+hdk = "=0.7.1"
+serde = "1.0"
+holochain_serialized_bytes = "*"  # Required for integrity zomes

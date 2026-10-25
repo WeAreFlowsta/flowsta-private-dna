@@ -1,0 +1,12 @@
+---
+manifest_version: "0"
+name: flowsta_private_v2_1_happ
+description: "Flowsta Private Data v2.1 - Holochain 0.7 generation of v2.0: opaque Sealed records, per-user network seed"
+roles:
+  - name: flowsta_private_v2_1
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: flowsta_private_v2_1.dna
+      clone_limit: 0

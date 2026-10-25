@@ -1,0 +1,23 @@
+[package]
+name = "flowsta-private-v2-1-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Sweettest for Flowsta Private DNA v2.1 on a real Holochain 0.7.1 conductor"
+
+# Its own workspace on purpose: the DNA workspace one level up builds for
+# wasm32 and must never pull the conductor crate in.
+[workspace]
+
+[dependencies]
+private_data_coordinator = { path = "../zomes/private_data/coordinator" }
+serde = { version = "1", features = ["derive"] }
+serde_bytes = "0.11"
+
+[dev-dependencies]
+holochain = { version = "=0.7.1", features = ["test_utils"] }
+holo_hash = { version = "0.7.1", features = ["encoding"] }
+tokio = { version = "1", features = ["full"] }
+
+[profile.dev]
+debug = 0
